@@ -18,6 +18,11 @@
                   ws.send("Message to send");
                   alert("Message is sent...");
                };
+               
+               ws.onerror = function(){
+            	   	alert("Fehler");
+            	   
+               }
 				
                ws.onmessage = function (evt) 
                { 
