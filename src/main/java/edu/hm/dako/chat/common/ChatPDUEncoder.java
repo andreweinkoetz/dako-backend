@@ -40,6 +40,9 @@ public class ChatPDUEncoder implements Encoder.Text<ChatPDU> {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		System.out.println(jsonInString);
+		
 		return jsonInString;
 	}
 

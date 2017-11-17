@@ -5,7 +5,7 @@ package edu.hm.dako.chat.common;
  *
  * @author Matthias Strobl, P. Mandl
  */
-public enum PduType {
+public enum Pdutype {
     UNDEFINED(0, "Undefined"),
     LOGIN_REQUEST(1, "Login-Request"),
     LOGIN_RESPONSE(2, "Login-Response"),
@@ -23,13 +23,13 @@ public enum PduType {
     private final int id;
     private final String description;
 
-    PduType(int id, String description) {
+    Pdutype(int id, String description) {
 	this.id = id;
 	this.description = description;
     }
 
-    public static PduType getId(int id) {
-	for (PduType e : values()) {
+    public static Pdutype getId(int id) {
+	for (Pdutype e : values()) {
 	    if (e.getId() == id) {
 		return e;
 	    }

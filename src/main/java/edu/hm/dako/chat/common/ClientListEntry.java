@@ -93,11 +93,11 @@ public class ClientListEntry {
 		return userName;
 	}
 
-	public synchronized void setConnection(Session session) {
+	public synchronized void setSession(Session session) {
 		this.session = session;
 	}
 
-	public synchronized Session getSessionn() {
+	public synchronized Session getSession() {
 		return (session);
 	}
 
