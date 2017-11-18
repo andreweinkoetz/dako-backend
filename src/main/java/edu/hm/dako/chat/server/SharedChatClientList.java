@@ -253,6 +253,9 @@ public class SharedChatClientList {
 
 		boolean deletedFlag = false;
 		ClientListEntry removeCandidateClient = (ClientListEntry) clients.get(userName);
+		
+		System.out.println(removeCandidateClient);
+		
 		if (removeCandidateClient != null) {
 
 			// Event-Warteliste des Clients leer?

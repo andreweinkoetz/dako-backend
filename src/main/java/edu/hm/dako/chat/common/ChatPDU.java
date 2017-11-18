@@ -314,10 +314,11 @@ public class ChatPDU implements Serializable {
 	 * @return Erzeugte PDU
 	 */
 	public static ChatPDU createLoginResponsePdu(String eventInitiator,
-			ChatPDU receivedPdu) {
+			ChatPDU receivedPdu, Vector<String> clientList) {
 
 		ChatPDU pdu = new ChatPDU();
 		pdu.setPduType(Pdutype.LOGIN_RESPONSE);
+		pdu.setClients(clientList);
 		pdu.setServerThreadName(Thread.currentThread().getName());
 		pdu.setClientThreadName(receivedPdu.getClientThreadName());
 		pdu.setUserName(eventInitiator);

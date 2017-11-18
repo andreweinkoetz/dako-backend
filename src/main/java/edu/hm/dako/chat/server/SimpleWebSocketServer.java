@@ -14,6 +14,7 @@ import javax.websocket.server.ServerEndpoint;
 import edu.hm.dako.chat.common.ChatPDUEncoder;
 import edu.hm.dako.chat.common.ClientConversationStatus;
 import edu.hm.dako.chat.common.ClientListEntry;
+import edu.hm.dako.chat.common.Pdutype;
 import edu.hm.dako.chat.common.ChatPDU;
 import edu.hm.dako.chat.common.ChatPDUDecoder;
 
@@ -33,19 +34,25 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 	@Override
 	@OnError
 	public void error(Throwable t) {
-
+		sess	.remove(session);
 	}
 
 	@Override
 	@OnClose
 	public void close() {
-
+		System.out.println("Closed Session for " + userName);
+		clients.getClient(userName).setFinished(true);
+		System.out.println(clients.deleteClient(userName));
+		sess.remove(session);
+		ChatPDU pdu = new ChatPDU();
+		pdu.setPduType(Pdutype.LOGOUT_EVENT);
+		sendLoginListUpdateEvent(pdu);
 	}
 
 	@Override
 	@OnMessage
 	public void handleIncomingPDU(ChatPDU receivedPdu) throws IOException {
-		
+
 		// Empfangene Nachricht bearbeiten
 		try {
 			switch (receivedPdu.getPduType()) {
@@ -90,7 +97,12 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 					// nicht mehr in einer anderen Warteliste ist
 					if (clients.deleteClient(userName) == true) {
 						// Jetzt kann auch Worker-Thread beendet werden
-
+						try {
+							this.session.close();
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
 						// log.debug("Laenge der Clientliste nach dem Entfernen von " + userName + ": "
 						// + clients.size());
 						// log.debug("Worker-Thread fuer " + userName + " zum Beenden vorgemerkt");
@@ -116,17 +128,16 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 		ChatPDU pdu;
 		// log.debug("Login-Request-PDU fuer " + receivedPdu.getUserName() + "
 		// empfangen");
-	System.out.println("Befindet sich in Antwort-Bau");
-	System.out.println(receivedPdu);
-	System.out.println(clients);
+		System.out.println(receivedPdu);
+		System.out.println(clients);
 		// Neuer Client moechte sich einloggen, Client in Client-Liste
 		// eintragen
 		if (!clients.existsClient(receivedPdu.getUserName())) {
 			// log.debug("User nicht in Clientliste: " + receivedPdu.getUserName());
-			
+
 			ClientListEntry client = new ClientListEntry(receivedPdu.getUserName(), session);
 			client.setLoginTime(System.nanoTime());
-			
+
 			clients.createClient(receivedPdu.getUserName(), client);
 			clients.changeClientStatus(receivedPdu.getUserName(), ClientConversationStatus.REGISTERING);
 			// log.debug("User " + receivedPdu.getUserName() + " nun in Clientliste");
@@ -141,19 +152,17 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 
 			Vector<String> clientList = clients.getClientNameList();
 			System.out.println("Erstellt Login-PDU");
-			
+
 			pdu = ChatPDU.createLoginEventPdu(userName, clientList, receivedPdu);
 			sendLoginListUpdateEvent(pdu);
 
 			// Login Response senden
-			ChatPDU responsePdu = ChatPDU.createLoginResponsePdu(userName, receivedPdu);
+			ChatPDU responsePdu = ChatPDU.createLoginResponsePdu(userName, receivedPdu, clientList);
 
 			try {
 				sendPduToClient(client, responsePdu);
 			} catch (Exception e) {
-				// log.debug("Senden einer Login-Response-PDU an " + userName + "
-				// fehlgeschlagen");
-				// log.debug("Exception Message: " + e.getMessage());
+				System.out.println(e.getMessage());
 			}
 
 			// log.debug("Login-Response-PDU an Client " + userName + " gesendet");
@@ -222,6 +231,13 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 			// Worker-Thread des Clients, der den Logout-Request gesendet
 			// hat, auch gleich zum Beenden markieren
 			clients.finish(receivedPdu.getUserName());
+			
+			try {
+				this.session.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			// log.debug("Laenge der Clientliste beim Vormerken zum Loeschen von "
 			// + receivedPdu.getUserName() + ": " + clients.size());
 		}
@@ -234,9 +250,8 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 		// TODO: clients.setRequestStartTime(receivedPdu.getUserName(), startTime);
 		clients.incrNumberOfReceivedChatMessages(receivedPdu.getUserName());
 
-		// log.debug("Chat-Message-Request-PDU von " + receivedPdu.getUserName() + " mit
-		// Sequenznummer "
-		// + receivedPdu.getSequenceNumber() + " empfangen");
+		 System.out.println("Chat-Message-Request-PDU von " + receivedPdu.getUserName() + " mit Sequenznummer "
+		 + receivedPdu.getSequenceNumber() + " empfangen");
 
 		if (!clients.existsClient(receivedPdu.getUserName())) {
 			// log.debug("User nicht in Clientliste: " + receivedPdu.getUserName());
