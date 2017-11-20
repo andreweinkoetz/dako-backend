@@ -1,9 +1,9 @@
 package edu.hm.dako.chat.server;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Vector;
 
+import javax.websocket.EncodeException;
 import javax.websocket.OnClose;
 import javax.websocket.OnError;
 import javax.websocket.OnMessage;
@@ -21,14 +21,13 @@ import edu.hm.dako.chat.common.ChatPDUDecoder;
 @ServerEndpoint(value = "/simplechat", encoders = { ChatPDUEncoder.class }, decoders = { ChatPDUDecoder.class })
 public class SimpleWebSocketServer extends AbstractWebSocketServer {
 
-	static ArrayList<Session> sess = new ArrayList<Session>();
-	Session session;
-
 	@Override
 	@OnOpen
 	public void open(Session session) {
 		this.session = session;
 		sess.add(session);
+		System.out.println(session.getId());
+		System.out.println(session.getOpenSessions());
 	}
 
 	@Override
@@ -78,7 +77,7 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 				break;
 			}
 		} catch (Exception e) {
-			// log.error("Exception bei der Nachrichtenverarbeitung");
+			System.out.println("Exception bei der Nachrichtenverarbeitung");
 		}
 
 	}
@@ -144,7 +143,7 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 
 			userName = receivedPdu.getUserName();
 
-			Thread.currentThread().setName(receivedPdu.getUserName());
+			//Thread.currentThread().setName(receivedPdu.getUserName());
 			// log.debug("Laenge der Clientliste: " + clients.size());
 
 			// Login-Event an alle Clients (auch an den gerade aktuell
@@ -176,7 +175,7 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 			pdu = ChatPDU.createLoginErrorResponsePdu(receivedPdu, ChatPDU.LOGIN_ERROR);
 			System.out.println("Else-Zweig???");
 			try {
-				session.getAsyncRemote().sendObject(pdu);
+				session.getBasicRemote().sendObject(pdu);
 				// log.debug("Login-Response-PDU an " + receivedPdu.getUserName()
 				// + " mit Fehlercode " + ChatPDU.LOGIN_ERROR + " gesendet");
 			} catch (Exception e) {
@@ -309,32 +308,8 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 		}
 
 	}
+	
 
-	private void sendLogoutResponse(String eventInitiatorClient) {
-
-		ClientListEntry client = clients.getClient(eventInitiatorClient);
-
-		if (client != null) {
-			ChatPDU responsePdu = ChatPDU.createLogoutResponsePdu(eventInitiatorClient, 0, 0, 0, 0,
-					client.getNumberOfReceivedChatMessages());
-
-			// log.debug(eventInitiatorClient + ": SentEvents aus Clientliste: "
-			// + client.getNumberOfSentEvents() + ": ReceivedConfirms aus Clientliste: "
-			// + client.getNumberOfReceivedEventConfirms());
-			try {
-				sendPduToClient(clients.getClient(eventInitiatorClient), responsePdu);
-			} catch (Exception e) {
-				// log.debug("Senden einer Logout-Response-PDU an " + eventInitiatorClient
-				// + " fehlgeschlagen");
-				// log.debug("Exception Message: " + e.getMessage());
-			}
-
-			// log.debug("Logout-Response-PDU an Client " + eventInitiatorClient + "
-			// gesendet");
-		}
-	}
-
-	@Override
 	public void sendLoginListUpdateEvent(ChatPDU pdu) {
 		// Liste der eingeloggten bzw. sich einloggenden User ermitteln
 		Vector<String> clientList = clients.getRegisteredClientNameList();
@@ -370,7 +345,16 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 
 	@Override
 	public void sendPduToClient(ClientListEntry client, ChatPDU pdu) {
-		client.getSession().getAsyncRemote().sendObject(pdu);
+		System.out.println(client.getSession().getId() + " für Client: " + client.getUserName());
+		try {
+			client.getSession().getBasicRemote().sendObject(pdu);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (EncodeException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 }

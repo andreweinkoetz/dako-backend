@@ -71,8 +71,6 @@ public class SharedClientStatistics {
 		// Anzahl an Uebertragungswiederholungen (fuer unzuverlaessige
 		// Verbindungen wie UDP)
 		int numberOfRetries;
-		// Counter zum setzten des Fortschritts
-		private int progressCounter = 0;
 		// Anzahl gesendeter Events fuer den Client
 		long numberOfSentEventMessages;
 		// Anzahl empfangener Responses fuer den Client

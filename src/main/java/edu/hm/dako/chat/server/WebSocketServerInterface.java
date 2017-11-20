@@ -22,9 +22,9 @@ public interface WebSocketServerInterface {
 	
 	public void logoutRequestAction(ChatPDU receivedPdu);
 	
-	public void chatMessageRequestAction(ChatPDU receivedPdu);
+	public void sendLogoutResponse(String eventInitiatorClient);
 	
-	public void sendLoginListUpdateEvent(ChatPDU pdu);
+	public void chatMessageRequestAction(ChatPDU receivedPdu);
 	
 	public void sendPduToClient(ClientListEntry client, ChatPDU pdu);
 	
