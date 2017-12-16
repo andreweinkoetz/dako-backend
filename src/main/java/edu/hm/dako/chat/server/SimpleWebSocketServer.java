@@ -11,6 +11,9 @@ import javax.websocket.OnOpen;
 import javax.websocket.Session;
 import javax.websocket.server.ServerEndpoint;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import edu.hm.dako.chat.common.ChatPDUEncoder;
 import edu.hm.dako.chat.common.ClientConversationStatus;
 import edu.hm.dako.chat.common.ClientListEntry;
@@ -21,29 +24,46 @@ import edu.hm.dako.chat.common.ChatPDUDecoder;
 @ServerEndpoint(value = "/simplechat", encoders = { ChatPDUEncoder.class }, decoders = { ChatPDUDecoder.class })
 public class SimpleWebSocketServer extends AbstractWebSocketServer {
 
+	private static Log log = LogFactory.getLog(SimpleWebSocketServer.class);
+
 	@Override
 	@OnOpen
 	public void open(Session session) {
 		this.session = session;
-//		System.out.println(session.getId());
-//		System.out.println(session.getOpenSessions());
 	}
 
 	@Override
 	@OnError
 	public void error(Throwable t) {
-		t.printStackTrace();
+		log.error("Kommunikation wurde unerwartet abgebrochen: " + t.getMessage());
 	}
 
 	@Override
 	@OnClose
 	public void close() {
-		//System.out.println("Closed Session for " + userName);
-		clients.getClient(userName).setFinished(true);
-		//System.out.println(clients.deleteClient(userName));
-		ChatPDU pdu = new ChatPDU();
-		pdu.setPduType(Pdutype.LOGOUT_EVENT);
-		sendLoginListUpdateEvent(pdu);
+		log.debug("Client meldet sich ab: " + clients.getClient(userName));
+		if (removeClientOnClose()) {
+			log.debug("Closed Session for " + userName);
+			ChatPDU pdu = new ChatPDU();
+			pdu.setPduType(Pdutype.LOGOUT_EVENT);
+			pdu.setUserName(userName);
+			pdu.setEventUserName(userName);
+			pdu.setClients(clients.getClientNameList());
+			sendLoginListUpdateEvent(pdu);
+		}
+	}
+
+	private boolean removeClientOnClose() {
+		ClientListEntry lostClient = clients.getClient(userName);
+		if (lostClient == null) {
+			return false;
+		}
+		if (lostClient.getStatus() != ClientConversationStatus.UNREGISTERING
+				&& lostClient.getStatus() != ClientConversationStatus.UNREGISTERED) {
+			clients.deleteClientWithoutCondition(userName);
+			return true;
+		}
+		return false;
 	}
 
 	@Override
@@ -70,12 +90,12 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 				break;
 
 			default:
-				// log.debug("Falsche PDU empfangen von Client: " + receivedPdu.getUserName()
-				// + ", PduType: " + receivedPdu.getPduType());
+				log.debug("Falsche PDU empfangen von Client: " + receivedPdu.getUserName() + ", PduType: "
+						+ receivedPdu.getPduType());
 				break;
 			}
 		} catch (Exception e) {
-			System.out.println("Exception bei der Nachrichtenverarbeitung");
+			log.error(e.getMessage());
 		}
 
 	}
@@ -97,12 +117,10 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 						try {
 							this.session.close();
 						} catch (IOException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
+							log.error(e.getMessage());
 						}
-						// log.debug("Laenge der Clientliste nach dem Entfernen von " + userName + ": "
-						// + clients.size());
-						// log.debug("Worker-Thread fuer " + userName + " zum Beenden vorgemerkt");
+						log.debug("Laenge der Clientliste nach dem Entfernen von " + userName + ": " + clients.size());
+						log.debug("Worker-Thread fuer " + userName + " zum Beenden vorgemerkt");
 						return true;
 					}
 				}
@@ -112,8 +130,8 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 		// Garbage Collection in der Clientliste durchfuehren
 		Vector<String> deletedClients = clients.gcClientList();
 		if (deletedClients.contains(userName)) {
-			// log.debug("Ueber Garbage Collector ermittelt: Laufender Worker-Thread fuer "
-			// + userName + " kann beendet werden");
+			log.debug("Ueber Garbage Collector ermittelt: Laufender Worker-Thread fuer " + userName
+					+ " kann beendet werden");
 			finished = true;
 			return true;
 		}
@@ -123,32 +141,27 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 	@Override
 	public void loginRequestAction(ChatPDU receivedPdu) {
 		ChatPDU pdu;
-		// log.debug("Login-Request-PDU fuer " + receivedPdu.getUserName() + "
-		// empfangen");
-//		System.out.println(receivedPdu);
-//		System.out.println(clients);
+		log.debug("Login-Request-PDU fuer " + receivedPdu.getUserName() + " empfangen");
 		// Neuer Client moechte sich einloggen, Client in Client-Liste
 		// eintragen
 		if (!clients.existsClient(receivedPdu.getUserName())) {
-			// log.debug("User nicht in Clientliste: " + receivedPdu.getUserName());
+			log.debug("User nicht in Clientliste: " + receivedPdu.getUserName());
 
 			ClientListEntry client = new ClientListEntry(receivedPdu.getUserName(), session);
 			client.setLoginTime(System.nanoTime());
 
 			clients.createClient(receivedPdu.getUserName(), client);
 			clients.changeClientStatus(receivedPdu.getUserName(), ClientConversationStatus.REGISTERING);
-			// log.debug("User " + receivedPdu.getUserName() + " nun in Clientliste");
+			log.debug("User " + receivedPdu.getUserName() + " nun in Clientliste");
 
 			userName = receivedPdu.getUserName();
 
-			//Thread.currentThread().setName(receivedPdu.getUserName());
-			// log.debug("Laenge der Clientliste: " + clients.size());
+			log.debug("Laenge der Clientliste: " + clients.size());
 
 			// Login-Event an alle Clients (auch an den gerade aktuell
 			// anfragenden) senden
 
 			Vector<String> clientList = clients.getClientNameList();
-			//System.out.println("Erstellt Login-PDU");
 
 			pdu = ChatPDU.createLoginEventPdu(userName, clientList, receivedPdu);
 			sendLoginListUpdateEvent(pdu);
@@ -162,7 +175,7 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 				System.out.println(e.getMessage());
 			}
 
-			// log.debug("Login-Response-PDU an Client " + userName + " gesendet");
+			log.debug("Login-Response-PDU an Client " + userName + " gesendet");
 
 			// Zustand des Clients aendern
 			clients.changeClientStatus(userName, ClientConversationStatus.REGISTERED);
@@ -171,14 +184,13 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 			// User bereits angemeldet, Fehlermeldung an Client senden,
 			// Fehlercode an Client senden
 			pdu = ChatPDU.createLoginErrorResponsePdu(receivedPdu, ChatPDU.LOGIN_ERROR);
-			
+
 			try {
 				session.getBasicRemote().sendObject(pdu);
-				// log.debug("Login-Response-PDU an " + receivedPdu.getUserName()
-				// + " mit Fehlercode " + ChatPDU.LOGIN_ERROR + " gesendet");
+				log.debug("Login-Response-PDU an " + receivedPdu.getUserName() + " mit Fehlercode "
+						+ ChatPDU.LOGIN_ERROR + " gesendet");
 			} catch (Exception e) {
-				// log.debug("Senden einer Login-Response-PDU an " + receivedPdu.getUserName()
-				// + " nicth moeglich");
+				log.debug("Senden einer Login-Response-PDU an " + receivedPdu.getUserName() + " nicht moeglich");
 
 			}
 		}
@@ -187,16 +199,11 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 	@Override
 	public void logoutRequestAction(ChatPDU receivedPdu) {
 		ChatPDU pdu;
-		// TODO: logoutCounter.getAndIncrement();
-		// log.debug("Logout-Request von " + receivedPdu.getUserName() + ", LogoutCount
-		// = "
-		// + logoutCounter.get());
-		//
-		// log.debug("Logout-Request-PDU von " + receivedPdu.getUserName() + "
-		// empfangen");
+
+		log.debug("Logout-Request-PDU von " + receivedPdu.getUserName() + "empfangen");
 
 		if (!clients.existsClient(userName)) {
-			System.out.println("User nicht in Clientliste: " + receivedPdu.getUserName());
+			log.error("User nicht in Clientliste: " + receivedPdu.getUserName());
 		} else {
 
 			// Event an Client versenden
@@ -228,15 +235,9 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 			// Worker-Thread des Clients, der den Logout-Request gesendet
 			// hat, auch gleich zum Beenden markieren
 			clients.finish(receivedPdu.getUserName());
-			
-			try {
-				this.session.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			// log.debug("Laenge der Clientliste beim Vormerken zum Loeschen von "
-			// + receivedPdu.getUserName() + ": " + clients.size());
+
+			log.debug("Laenge der Clientliste beim Vormerken zum Loeschen von " + receivedPdu.getUserName() + ": "
+					+ clients.size());
 		}
 
 	}
@@ -244,14 +245,14 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 	@Override
 	public void chatMessageRequestAction(ChatPDU receivedPdu) {
 		ClientListEntry client = null;
-		// TODO: clients.setRequestStartTime(receivedPdu.getUserName(), startTime);
+
 		clients.incrNumberOfReceivedChatMessages(receivedPdu.getUserName());
 
-		 //System.out.println("Chat-Message-Request-PDU von " + receivedPdu.getUserName() + " mit Sequenznummer "
-		// + receivedPdu.getSequenceNumber() + " empfangen");
+		log.debug("Chat-Message-Request-PDU von " + receivedPdu.getUserName() + " mit Sequenznummer "
+				+ receivedPdu.getSequenceNumber() + " empfangen");
 
 		if (!clients.existsClient(receivedPdu.getUserName())) {
-			// log.debug("User nicht in Clientliste: " + receivedPdu.getUserName());
+			log.debug("User nicht in Clientliste: " + receivedPdu.getUserName());
 		} else {
 			// Liste der betroffenen Clients ermitteln
 			Vector<String> sendList = clients.getClientNameList();
@@ -264,17 +265,11 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 					if ((client != null) && (client.getStatus() != ClientConversationStatus.UNREGISTERED)) {
 						pdu.setUserName(client.getUserName());
 						sendPduToClient(client, pdu);
-						// log.debug("Chat-Event-PDU an " + client.getUserName() + " gesendet");
+						log.debug("Chat-Event-PDU an " + client.getUserName() + " gesendet");
 						clients.incrNumberOfSentChatEvents(client.getUserName());
-						// TODO: eventCounter.getAndIncrement();
-						// log.debug(userName + ": EventCounter erhoeht = " + eventCounter.get()
-						// + ", Aktueller ConfirmCounter = " + confirmCounter.get()
-						// + ", Anzahl gesendeter ChatMessages von dem Client = "
-						// + receivedPdu.getSequenceNumber());
 					}
 				} catch (Exception e) {
-					// log.debug("Senden einer Chat-Event-PDU an " + client.getUserName()
-					// + " nicht moeglich");
+					log.debug("Senden einer Chat-Event-PDU an " + client.getUserName() + " nicht moeglich");
 
 				}
 			}
@@ -286,54 +281,46 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 						(System.nanoTime() - client.getStartTime()));
 
 				if (responsePdu.getServerTime() / 1000000 > 100) {
-					// log.debug(Thread.currentThread().getName()
-					// + ", Benoetigte Serverzeit vor dem Senden der Response-Nachricht > 100 ms: "
-					// + responsePdu.getServerTime() + " ns = "
-					// + responsePdu.getServerTime() / 1000000 + " ms");
+					log.debug(Thread.currentThread().getName()
+							+ ", Benoetigte Serverzeit vor dem Senden der Response-Nachricht > 100 ms: "
+							+ responsePdu.getServerTime() + " ns = " + responsePdu.getServerTime() / 1000000 + " ms");
 				}
 
 				try {
 					sendPduToClient(client, responsePdu);
-					System.out.println("Chat-Message-Response-PDU an " + receivedPdu.getUserName() + " gesendet");
+					log.debug("Chat-Message-Response-PDU an " + receivedPdu.getUserName() + " gesendet");
 				} catch (Exception e) {
-					// log.debug("Senden einer Chat-Message-Response-PDU an " + client.getUserName()
-					// + " nicht moeglich");
+					log.debug("Senden einer Chat-Message-Response-PDU an " + client.getUserName() + " nicht moeglich");
 
 				}
 			}
-			// log.debug("Aktuelle Laenge der Clientliste: " + clients.size());
+			log.debug("Aktuelle Laenge der Clientliste: " + clients.size());
 		}
 
 	}
-	
 
 	public void sendLoginListUpdateEvent(ChatPDU pdu) {
 		// Liste der eingeloggten bzw. sich einloggenden User ermitteln
 		Vector<String> clientList = clients.getRegisteredClientNameList();
 
-		// log.debug("Aktuelle Clientliste, die an die Clients uebertragen wird: " +
-		// clientList);
+		log.debug("Aktuelle Clientliste, die an die Clients uebertragen wird: " + clientList);
 
 		pdu.setClients(clientList);
 
 		Vector<String> clientList2 = clients.getClientNameList();
 		for (String s : new Vector<String>(clientList2)) {
-			// log.debug("Fuer " + s
-			// + " wird Login- oder Logout-Event-PDU an alle aktiven Clients gesendet");
+			log.debug("Fuer " + s + " wird Login- oder Logout-Event-PDU an alle aktiven Clients gesendet");
 
 			ClientListEntry client = clients.getClient(s);
 			try {
 				if (client != null) {
 
 					sendPduToClient(client, pdu);
-					// log.debug(
-					// "Login- oder Logout-Event-PDU an " + client.getUserName() + " gesendet");
+					log.debug("Login- oder Logout-Event-PDU an " + client.getUserName() + " gesendet");
 					clients.incrNumberOfSentChatEvents(client.getUserName());
-					// TODO: eventCounter.getAndIncrement();
 				}
 			} catch (Exception e) {
-				// log.error(
-				// "Senden einer Login- oder Logout-Event-PDU an " + s + " nicht moeglich");
+				log.error("Senden einer Login- oder Logout-Event-PDU an " + s + " nicht moeglich");
 
 			}
 		}
@@ -342,16 +329,13 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 
 	@Override
 	public void sendPduToClient(ClientListEntry client, ChatPDU pdu) {
-		//System.out.println(client.getSession().getId() + " für Client: " + client.getUserName());
+
 		try {
 			client.getSession().getBasicRemote().sendObject(pdu);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (EncodeException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		} catch (IOException | EncodeException e) {
+			log.error(e.getMessage());
 		}
+
 	}
 
 }

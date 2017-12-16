@@ -71,7 +71,7 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 	@OnMessage
 	public void handleIncomingPDU(ChatPDU receivedPdu) throws IOException {
 
-		log.debug("PDU vom Typ: " +receivedPdu.getPduType() + " empfangen");
+		log.debug("PDU vom Typ: " + receivedPdu.getPduType() + " empfangen");
 
 		if (checkIfClientIsDeletable() == true) {
 			log.debug("User kann entfernt werden, checkIfClientIsDeletable liefert true fuer " + userName);
@@ -210,10 +210,6 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 	@Override
 	public void logoutRequestAction(ChatPDU receivedPdu) {
 		ChatPDU pdu;
-		// logoutCounter.getAndIncrement();
-		// log.debug("Logout-Request von " + receivedPdu.getUserName() + ",
-		// LogoutCount = "
-		// + logoutCounter.get());
 
 		log.debug("Logout-Request-PDU von " + receivedPdu.getUserName() + " empfangen");
 
@@ -298,10 +294,6 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 
 		log.debug("Aktuelle Laenge der Clientliste: " + clients.size());
 
-		// Statistikdaten aktualisieren
-		// clients.incrNumberOfReceivedChatMessages(receivedPdu.getUserName());
-		// clients.setRequestStartTime(receivedPdu.getUserName(), startTime);
-
 	}
 
 	public void sendLoginListUpdateEvent(Vector<String> currentClientList, ChatPDU pdu) {
@@ -312,15 +304,9 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 			ClientListEntry client = clients.getClient(s);
 			try {
 				if (client != null) {
-					// log.debug("Login- oder Logout-Event-PDU an " + client.getUserName()
-					// + ", ClientListe: " + pdu.getClients());
-
+					log.debug("Login- oder Logout-Event-PDU an " + client.getUserName() + ", ClientListe: "
+							+ pdu.getClients());
 					sendPduToClient(client, pdu);
-
-					// clients.incrNumberOfSentChatEvents(client.getUserName());
-					// eventCounter.getAndIncrement();
-					// log.debug(userName + ": EventCounter bei Login/Logout erhoeht = "
-					// + eventCounter.get() + ", ConfirmCounter = " + confirmCounter.get());
 				}
 			} catch (Exception e) {
 				log.error("Senden einer Login- oder Logout-Event-PDU an " + s + " nicht moeglich");
@@ -351,15 +337,6 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 
 		String eventInitiatorClient;
 		String confirmSenderClient;
-
-		// Empfangene Confirms hochzaehlen
-		// clients.incrNumberOfReceivedChatEventConfirms(receivedPdu.getEventUserName());
-		// confirmCounter.getAndIncrement();
-		// log.debug(userName + ": ConfirmCounter fuer ChatMessage erhoeht = "
-		// + confirmCounter.get()
-		// + ", Aktueller EventCounter = " + eventCounter.get()
-		// + ", Anzahl gesendeter ChatMessages von dem Client = " +
-		// receivedPdu.getSequenceNumber());
 
 		// Chat-Response-PDU fuer den initiierenden Client aufbauen und
 		// senden, sofern alle Events-Confirms
@@ -406,16 +383,11 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 		String eventInitiatorClient;
 		String confirmSenderClient;
 
-		// log.debug("Logout-Event-Confirm-PDU von " +
-		// receivedPdu.getUserName() + " fuer initierenden Client "
-		// + receivedPdu.getEventUserName() + " empfangen");
+		log.debug("Logout-Event-Confirm-PDU von " + receivedPdu.getUserName() + " fuer initierenden Client "
+				+ receivedPdu.getEventUserName() + " empfangen");
 
 		// Empfangene Confirms hochzaehlen
 		clients.incrNumberOfReceivedChatEventConfirms(receivedPdu.getEventUserName());
-		// confirmCounter.getAndIncrement();
-		// log.debug(userName + ": ConfirmCounter fuer Logout erhoeht = " +
-		// confirmCounter.get()
-		// + ", Aktueller EventCounter = " + eventCounter.get());
 
 		eventInitiatorClient = receivedPdu.getEventUserName();
 		confirmSenderClient = receivedPdu.getUserName();
@@ -432,10 +404,6 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 				log.debug(
 						"Warteliste von " + eventInitiatorClient + " ist nun leer, alle Confirms fuer Logout erhalten");
 				sendLogoutResponse(eventInitiatorClient);
-
-				// log.debug(
-				// eventInitiatorClient + ": EventCounter beim Logout = " + eventCounter.get()
-				// + ", ConfirmCounter beim Logout-Response = " + confirmCounter.get());
 
 				// Worker-Thread des Clients, der den Logout-Request gesendet
 				// hat, auch gleich zum Beenden markieren
@@ -455,31 +423,23 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 		String eventInitiatorClient;
 		String confirmSenderClient;
 
-		// log.debug("Login-Event-Confirm-PDU von Client " +
-		// receivedPdu.getUserName() + " fuer initierenden "
-		// + receivedPdu.getEventUserName() + " empfangen");
+		log.debug("Login-Event-Confirm-PDU von Client " + receivedPdu.getUserName() + " fuer initierenden "
+				+ receivedPdu.getEventUserName() + " empfangen");
 
 		// Empfangene Confirms hochzaehlen
 		clients.incrNumberOfReceivedChatEventConfirms(receivedPdu.getEventUserName());
-		// confirmCounter.getAndIncrement();
-		// log.debug(userName + ": ConfirmCounter fuer Login erhoeht = " +
-		// confirmCounter.get()
-		// + ", Aktueller EventCounter = " + eventCounter.get());
 
 		eventInitiatorClient = receivedPdu.getEventUserName();
 		confirmSenderClient = receivedPdu.getUserName();
-		// log.debug("Login-EventConfirm: Event-Initiator: " +
-		// eventInitiatorClient + ", Confirm-Sender: "
-		// + confirmSenderClient);
+		log.debug("Login-EventConfirm: Event-Initiator: " + eventInitiatorClient + ", Confirm-Sender: "
+				+ confirmSenderClient);
 
 		try {
-			// log.debug(confirmSenderClient + " aus der Warteliste von " +
-			// eventInitiatorClient + " austragen");
+			log.debug(confirmSenderClient + " aus der Warteliste von " + eventInitiatorClient + " austragen");
 
 			if ((clients.deleteWaitListEntry(eventInitiatorClient, confirmSenderClient) == 0)) {
-				// log.debug(
-				// "Warteliste von " + eventInitiatorClient + " ist nun leer, alle
-				// Login-Event-Confirms erhalten");
+				log.debug(
+						"Warteliste von " + eventInitiatorClient + " ist nun leer, alle Login-Event-Confirms erhalten");
 
 				if (clients.getClient(eventInitiatorClient).getStatus() == ClientConversationStatus.REGISTERING) {
 

@@ -289,6 +289,7 @@ public class ChatPDU implements Serializable {
 	 *          Empfangene PDU (Login-Request-PDU)
 	 * @return Erzeugte PDU
 	 */
+	@SuppressWarnings("unchecked")
 	public static ChatPDU createLoginEventPdu(String userName, Vector<String> clientList,
 			ChatPDU receivedPdu) {
 
