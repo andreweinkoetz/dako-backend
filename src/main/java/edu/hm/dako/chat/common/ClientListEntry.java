@@ -42,12 +42,6 @@ public class ClientListEntry {
 	// LogoutConfirm) fuer den Client
 	private long numberOfReceivedEventConfirms;
 
-	// Anzahl nicht erhaltener Bestaetigungen (derzeit nicht genutzt)
-	private long numberOfLostEventConfirms;
-
-	// Anzahl an Nachrichtenwiederholungen (derzeit nicht genutzt)
-	private long numberOfRetries;
-
 	// Liste, die auf alle Clients verweist, die noch kein Event-Confirm fuer
 	// einen konkret laufenden Request gesendet haben
 	private Vector<String> waitList;
@@ -62,8 +56,6 @@ public class ClientListEntry {
 		this.numberOfReceivedChatMessages = 0;
 		this.numberOfSentEvents = 0;
 		this.numberOfReceivedEventConfirms = 0;
-		this.numberOfLostEventConfirms = 0;
-		this.numberOfRetries = 0;
 		this.waitList = new Vector<String>();
 	}
 
@@ -71,16 +63,14 @@ public class ClientListEntry {
 	public String toString() {
 		StringBuilder stringBuilder = new StringBuilder();
 
-		stringBuilder
-				.append("ChatClientListEntry+++++++++++++++++++++++++++++++++++++++++++++");
+		stringBuilder.append("ChatClientListEntry+++++++++++++++++++++++++++++++++++++++++++++");
 		stringBuilder.append("UserName: " + this.userName);
 		stringBuilder.append("\n");
 		stringBuilder.append("Connection: " + this.session);
 		stringBuilder.append("\n");
 		stringBuilder.append("Status: " + this.status);
 		stringBuilder.append("\n");
-		stringBuilder
-				.append("+++++++++++++++++++++++++++++++++++++++++++++ChatClientListEntry");
+		stringBuilder.append("+++++++++++++++++++++++++++++++++++++++++++++ChatClientListEntry");
 
 		return stringBuilder.toString();
 	}
@@ -141,22 +131,6 @@ public class ClientListEntry {
 		return (numberOfReceivedEventConfirms);
 	}
 
-	public synchronized void setNumberOfLostEventConfirms(long nr) {
-		this.numberOfLostEventConfirms = nr;
-	}
-
-	public synchronized long getNumberOfLostEventConfirms() {
-		return (numberOfLostEventConfirms);
-	}
-
-	public synchronized void setNumberOfRetries(long nr) {
-		this.numberOfRetries = nr;
-	}
-
-	public synchronized long getNumberOfRetries() {
-		return (numberOfRetries);
-	}
-
 	public synchronized ClientConversationStatus getStatus() {
 		return status;
 	}
@@ -181,16 +155,8 @@ public class ClientListEntry {
 		this.numberOfReceivedEventConfirms++;
 	}
 
-	public synchronized void incrNumberOfLostEventConfirms() {
-		this.numberOfLostEventConfirms++;
-	}
-
 	public synchronized void incrNumberOfReceivedChatMessages() {
 		this.numberOfReceivedChatMessages++;
-	}
-
-	public synchronized void incrNumberOfRetries() {
-		this.numberOfRetries++;
 	}
 
 	public synchronized void setWaitList(Vector<String> list) {
@@ -198,7 +164,8 @@ public class ClientListEntry {
 	}
 
 	public synchronized void addWaitListEntry(String userName) {
-		this.waitList.add(userName);
+		if (!waitList.contains(userName))
+			this.waitList.add(userName);
 	}
 
 	public synchronized Vector<String> getWaitList() {

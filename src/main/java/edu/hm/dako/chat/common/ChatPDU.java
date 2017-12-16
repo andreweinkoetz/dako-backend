@@ -299,7 +299,7 @@ public class ChatPDU implements Serializable {
 		pdu.setUserName(userName);
 		pdu.setEventUserName(receivedPdu.getUserName());
 		pdu.setUserName(receivedPdu.getUserName());
-		pdu.setClients(clientList);
+		pdu.setClients((Vector<String>)clientList.clone());
 		pdu.setClientStatus(ClientConversationStatus.REGISTERING);
 		return pdu;
 	}

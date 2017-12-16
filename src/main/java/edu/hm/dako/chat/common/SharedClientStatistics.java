@@ -10,6 +10,8 @@ import java.util.Collections;
 import java.util.Formatter;
 import java.util.concurrent.CountDownLatch;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.commons.math3.exception.MathIllegalArgumentException;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
@@ -31,6 +33,8 @@ import org.apache.commons.math3.stat.descriptive.rank.Percentile;
  */
 public class SharedClientStatistics {
 
+	private static Log log = LogFactory.getLog(SharedClientStatistics.class);
+	
 	// Anzahl von Clients
 	private int numberOfClients;
 
@@ -710,7 +714,7 @@ public class SharedClientStatistics {
 			distributionMetrics.setStandardDeviation(standardDeviation.evaluate() / 1000000.0);
 
 		} catch (MathIllegalArgumentException e) {
-			// log.error("Fehler bei der Berechnung der Verteilungsmetriken");
+			log.error("Fehler bei der Berechnung der Verteilungsmetriken");
 		}
 
 		return distributionMetrics;
@@ -933,9 +937,9 @@ public class SharedClientStatistics {
 		try {
 			boolean exist = file.createNewFile();
 			if (!exist) {
-				// log.debug("Datei " + fileName + " existierte bereits");
+				 log.debug("Datei " + fileName + " existierte bereits");
 			} else {
-				// log.debug("Datei " + fileName + " erfolgreich angelegt");
+				 log.debug("Datei " + fileName + " erfolgreich angelegt");
 			}
 
 			// Datei zum Erweitern oeffnen
@@ -967,8 +971,7 @@ public class SharedClientStatistics {
 			out.close();
 
 		} catch (IOException e) {
-			// log.error("Fehler beim Schreiben des Auswertungssatzes in Datei " +
-			// fileName);
+			log.error("Fehler beim Schreiben des Auswertungssatzes in Datei " + fileName);
 		}
 	}
 

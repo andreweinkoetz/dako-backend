@@ -25,24 +25,22 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 	@OnOpen
 	public void open(Session session) {
 		this.session = session;
-		sess.add(session);
-		System.out.println(session.getId());
-		System.out.println(session.getOpenSessions());
+//		System.out.println(session.getId());
+//		System.out.println(session.getOpenSessions());
 	}
 
 	@Override
 	@OnError
 	public void error(Throwable t) {
-		sess	.remove(session);
+		t.printStackTrace();
 	}
 
 	@Override
 	@OnClose
 	public void close() {
-		System.out.println("Closed Session for " + userName);
+		//System.out.println("Closed Session for " + userName);
 		clients.getClient(userName).setFinished(true);
-		System.out.println(clients.deleteClient(userName));
-		sess.remove(session);
+		//System.out.println(clients.deleteClient(userName));
 		ChatPDU pdu = new ChatPDU();
 		pdu.setPduType(Pdutype.LOGOUT_EVENT);
 		sendLoginListUpdateEvent(pdu);
@@ -127,8 +125,8 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 		ChatPDU pdu;
 		// log.debug("Login-Request-PDU fuer " + receivedPdu.getUserName() + "
 		// empfangen");
-		System.out.println(receivedPdu);
-		System.out.println(clients);
+//		System.out.println(receivedPdu);
+//		System.out.println(clients);
 		// Neuer Client moechte sich einloggen, Client in Client-Liste
 		// eintragen
 		if (!clients.existsClient(receivedPdu.getUserName())) {
@@ -150,7 +148,7 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 			// anfragenden) senden
 
 			Vector<String> clientList = clients.getClientNameList();
-			System.out.println("Erstellt Login-PDU");
+			//System.out.println("Erstellt Login-PDU");
 
 			pdu = ChatPDU.createLoginEventPdu(userName, clientList, receivedPdu);
 			sendLoginListUpdateEvent(pdu);
@@ -173,7 +171,7 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 			// User bereits angemeldet, Fehlermeldung an Client senden,
 			// Fehlercode an Client senden
 			pdu = ChatPDU.createLoginErrorResponsePdu(receivedPdu, ChatPDU.LOGIN_ERROR);
-			System.out.println("Else-Zweig???");
+			
 			try {
 				session.getBasicRemote().sendObject(pdu);
 				// log.debug("Login-Response-PDU an " + receivedPdu.getUserName()
@@ -198,7 +196,7 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 		// empfangen");
 
 		if (!clients.existsClient(userName)) {
-			// log.debug("User nicht in Clientliste: " + receivedPdu.getUserName());
+			System.out.println("User nicht in Clientliste: " + receivedPdu.getUserName());
 		} else {
 
 			// Event an Client versenden
@@ -249,8 +247,8 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 		// TODO: clients.setRequestStartTime(receivedPdu.getUserName(), startTime);
 		clients.incrNumberOfReceivedChatMessages(receivedPdu.getUserName());
 
-		 System.out.println("Chat-Message-Request-PDU von " + receivedPdu.getUserName() + " mit Sequenznummer "
-		 + receivedPdu.getSequenceNumber() + " empfangen");
+		 //System.out.println("Chat-Message-Request-PDU von " + receivedPdu.getUserName() + " mit Sequenznummer "
+		// + receivedPdu.getSequenceNumber() + " empfangen");
 
 		if (!clients.existsClient(receivedPdu.getUserName())) {
 			// log.debug("User nicht in Clientliste: " + receivedPdu.getUserName());
@@ -296,8 +294,7 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 
 				try {
 					sendPduToClient(client, responsePdu);
-					// log.debug(
-					// "Chat-Message-Response-PDU an " + receivedPdu.getUserName() + " gesendet");
+					System.out.println("Chat-Message-Response-PDU an " + receivedPdu.getUserName() + " gesendet");
 				} catch (Exception e) {
 					// log.debug("Senden einer Chat-Message-Response-PDU an " + client.getUserName()
 					// + " nicht moeglich");
@@ -345,7 +342,7 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 
 	@Override
 	public void sendPduToClient(ClientListEntry client, ChatPDU pdu) {
-		System.out.println(client.getSession().getId() + " für Client: " + client.getUserName());
+		//System.out.println(client.getSession().getId() + " für Client: " + client.getUserName());
 		try {
 			client.getSession().getBasicRemote().sendObject(pdu);
 		} catch (IOException e) {
