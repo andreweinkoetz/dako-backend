@@ -1,4 +1,4 @@
-package edu.hm.dako.chat.common;
+package edu.hm.dako.chat.server;
 
 import javax.websocket.EncodeException;
 import javax.websocket.Encoder;
@@ -10,6 +10,14 @@ import org.apache.commons.logging.LogFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import edu.hm.dako.chat.common.ChatPDU;
+
+/**
+ * Enkodierklasse für ChatPDU
+ * 
+ * @author Andre Weinkötz
+ *
+ */
 public class ChatPDUEncoder implements Encoder.Text<ChatPDU> {
 
 	private static Log log = LogFactory.getLog(ChatPDUEncoder.class);

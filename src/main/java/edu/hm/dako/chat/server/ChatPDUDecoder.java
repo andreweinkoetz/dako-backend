@@ -1,4 +1,4 @@
-package edu.hm.dako.chat.common;
+package edu.hm.dako.chat.server;
 
 import java.io.IOException;
 
@@ -11,6 +11,14 @@ import org.apache.commons.logging.LogFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import edu.hm.dako.chat.common.ChatPDU;
+
+/**
+ * Dekodierklasse für ChatPDU
+ * 
+ * @author Andre Weinkötz
+ *
+ */
 public class ChatPDUDecoder implements Decoder.Text<ChatPDU> {
 
 	private static Log log = LogFactory.getLog(ChatPDUDecoder.class);

@@ -19,7 +19,7 @@ public class ClientListEntry {
 	// Verbindungs-Handle fuer Transportverbindung zum Client
 	private Session session;
 
-	// Kennzeichen zum Beenden des Worker-Threads
+	// Kennzeichen zum Beenden der Session
 	boolean finished;
 
 	// Login-Zeitpunkt

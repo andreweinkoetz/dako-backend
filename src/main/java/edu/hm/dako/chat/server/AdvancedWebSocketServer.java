@@ -2,8 +2,6 @@ package edu.hm.dako.chat.server;
 
 import java.io.IOException;
 import java.util.Vector;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import javax.websocket.EncodeException;
 import javax.websocket.OnClose;
 import javax.websocket.OnError;
@@ -16,12 +14,16 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import edu.hm.dako.chat.common.ChatPDU;
-import edu.hm.dako.chat.common.ChatPDUDecoder;
-import edu.hm.dako.chat.common.ChatPDUEncoder;
 import edu.hm.dako.chat.common.ClientConversationStatus;
 import edu.hm.dako.chat.common.ClientListEntry;
 import edu.hm.dako.chat.common.Pdutype;
 
+/**
+ *  Klasse zur Repräsentation der Advanced-Variante des Chatservers
+ * 
+ * @author Andre Weinkötz
+ *
+ */
 @ServerEndpoint(value = "/advancedchat", encoders = { ChatPDUEncoder.class }, decoders = { ChatPDUDecoder.class })
 public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 
@@ -42,7 +44,7 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 	@Override
 	@OnClose
 	public void close() {
-		log.debug("Client meldet sich ab: " + clients.getClient(userName));
+		log.debug("Client meldet sich ab: " + userName);
 		if (removeClientOnClose()) {
 			log.debug("Closed Session for " + userName);
 			ChatPDU pdu = new ChatPDU();
@@ -54,15 +56,22 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 		}
 	}
 
+	/**
+	 * Entfernt einen Client, wenn dieser die Verbindung abgebaut hat.
+	 * 
+	 * @return true wenn erfolgreich
+	 */
 	private boolean removeClientOnClose() {
-		ClientListEntry lostClient = clients.getClient(userName);
-		if (lostClient == null) {
-			return false;
-		}
-		if (lostClient.getStatus() != ClientConversationStatus.UNREGISTERING
-				&& lostClient.getStatus() != ClientConversationStatus.UNREGISTERED) {
-			clients.deleteClientWithoutCondition(userName);
-			return true;
+		if (userName != null) {
+			ClientListEntry lostClient = clients.getClient(userName);
+			if (lostClient == null) {
+				return false;
+			}
+			if (lostClient.getStatus() != ClientConversationStatus.UNREGISTERING
+					&& lostClient.getStatus() != ClientConversationStatus.UNREGISTERED) {
+				clients.deleteClientWithoutCondition(userName);
+				return true;
+			}
 		}
 		return false;
 	}
@@ -70,7 +79,9 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 	@Override
 	@OnMessage
 	public void handleIncomingPDU(ChatPDU receivedPdu) throws IOException {
-
+		
+		startTime = System.nanoTime();
+		
 		log.debug("PDU vom Typ: " + receivedPdu.getPduType() + " empfangen");
 
 		if (checkIfClientIsDeletable() == true) {
@@ -138,8 +149,6 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 					// nicht mehr in einer anderen Warteliste ist
 					log.debug("Laenge der Clientliste vor dem Entfernen von " + userName + ": " + clients.size());
 					if (clients.deleteClient(userName) == true) {
-						// Jetzt kann auch Worker-Thread beendet werden
-
 						log.debug("Laenge der Clientliste nach dem Entfernen von " + userName + ": " + clients.size());
 						log.debug("Worker-Thread fuer " + userName + " zum Beenden vorgemerkt");
 						return true;
@@ -168,8 +177,7 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 		// eintragen
 		if (!clients.existsClient(receivedPdu.getUserName())) {
 			log.debug("User nicht in Clientliste: " + receivedPdu.getUserName());
-			// TODO Prüfen ob es hier nicht auch zu einer Race-Cond kommt. session könnte in
-			// der Zwischenzeit überschrieben sein.
+
 			ClientListEntry client = new ClientListEntry(receivedPdu.getUserName(), session);
 			client.setLoginTime(System.nanoTime());
 			clients.createClient(receivedPdu.getUserName(), client);
@@ -192,10 +200,10 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 			pdu = ChatPDU.createLoginErrorResponsePdu(receivedPdu, ChatPDU.LOGIN_ERROR);
 
 			try {
+
 				synchronized (session) {
 					session.getBasicRemote().sendObject(pdu);
 				}
-
 				log.debug("Login-Response-PDU an " + receivedPdu.getUserName() + " mit Fehlercode "
 						+ ChatPDU.LOGIN_ERROR + " gesendet");
 			} catch (Exception e) {
@@ -241,8 +249,6 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 
 	}
 
-	private AtomicBoolean isAccessable = new AtomicBoolean(true);
-
 	@Override
 	public void chatMessageRequestAction(ChatPDU receivedPdu) {
 
@@ -253,6 +259,7 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 			log.debug("User nicht in Clientliste: " + receivedPdu.getUserName());
 		} else {
 
+			clients.setRequestStartTime(receivedPdu.getUserName(), startTime);
 			clients.getClient(receivedPdu.getUserName())
 					.setNumberOfReceivedChatMessages(receivedPdu.getSequenceNumber());
 
@@ -260,35 +267,23 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 			Vector<String> waitList = clients.createWaitList(receivedPdu.getUserName(),
 					clients.getRegisteredClientNameList());
 
-			// log.debug("Warteliste: " + waitList);
 			log.debug("Anzahl der User in der Warteliste von " + receivedPdu.getUserName() + ": " + waitList.size());
 
 			ChatPDU pdu = ChatPDU.createChatMessageEventPdu(userName, receivedPdu);
 
 			// Event an Clients senden
-			if (isAccessable.getAndSet(false)) {
-
-				for (String s : new Vector<String>(waitList)) {
-					ClientListEntry client = clients.getClient(s);
-					try {
-						if ((client != null) && (client.getStatus() != ClientConversationStatus.UNREGISTERED)) {
-							pdu.setUserName(client.getUserName());
-							sendPduToClient(client, pdu);
-							log.debug("Chat-Event-PDU an " + client.getUserName() + " gesendet");
-							// clients.incrNumberOfSentChatEvents(client.getUserName());
-							// eventCounter.getAndIncrement();
-							// log.debug(userName + ": EventCounter erhoeht = " +
-							// eventCounter.get()
-							// + ", Aktueller ConfirmCounter = " + confirmCounter.get()
-							// + ", Anzahl gesendeter ChatMessages von dem Client = "
-							// + receivedPdu.getSequenceNumber());
-						}
-					} catch (Exception e) {
-						log.error("Senden einer Chat-Event-PDU an " + client.getUserName() + " nicht moeglich");
-						log.error(e.getMessage());
+			for (String s : new Vector<String>(waitList)) {
+				ClientListEntry client = clients.getClient(s);
+				try {
+					if ((client != null) && (client.getStatus() != ClientConversationStatus.UNREGISTERED)) {
+						pdu.setUserName(client.getUserName());
+						sendPduToClient(client, pdu);
+						log.debug("Chat-Event-PDU an " + client.getUserName() + " gesendet");
 					}
+				} catch (Exception e) {
+					log.error("Senden einer Chat-Event-PDU an " + client.getUserName() + " nicht moeglich");
+					log.error(e.getMessage());
 				}
-				isAccessable.set(true);
 			}
 		}
 
@@ -296,6 +291,12 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 
 	}
 
+	/**
+	 * Sendet ein Event an alle Clients, wenn sich die Liste der angemeldeten
+	 * Clients verändert hat.
+	 * 
+	 * @param pdu Login/Logout Nachricht
+	 */
 	public void sendLoginListUpdateEvent(Vector<String> currentClientList, ChatPDU pdu) {
 		Vector<String> clientList = currentClientList;
 
@@ -331,6 +332,10 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 
 	}
 
+	/**
+	 * Methode zur Bearbeitung einer eintreffenden Message-Event-Bestätigung.
+	 * @param receivedPdu Event-Nachricht
+	 */
 	private void chatMessageEventConfirmAction(ChatPDU receivedPdu) {
 		log.debug("Chat-Message-Event-Confirm-PDU von " + receivedPdu.getUserName() + " fuer initierenden Client "
 				+ receivedPdu.getEventUserName() + " empfangen");
@@ -379,6 +384,10 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 
 	}
 
+	/**
+	 * Methode zur Bearbeitung einer eintreffenden Logout-Event-Bestätigung.
+	 * @param receivedPdu Event-Nachricht
+	 */
 	private void logoutEventConfirmAction(ChatPDU receivedPdu) {
 		String eventInitiatorClient;
 		String confirmSenderClient;
@@ -391,6 +400,7 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 
 		eventInitiatorClient = receivedPdu.getEventUserName();
 		confirmSenderClient = receivedPdu.getUserName();
+		
 		log.debug("Logout-EventConfirm: Event-Initiator: " + eventInitiatorClient + ", Confirm-Sender: "
 				+ confirmSenderClient);
 
@@ -405,8 +415,7 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 						"Warteliste von " + eventInitiatorClient + " ist nun leer, alle Confirms fuer Logout erhalten");
 				sendLogoutResponse(eventInitiatorClient);
 
-				// Worker-Thread des Clients, der den Logout-Request gesendet
-				// hat, auch gleich zum Beenden markieren
+				// zum Beenden markieren
 				clients.finish(eventInitiatorClient);
 
 				log.debug("Laenge der Clientliste beim Vormerken zum Loeschen von " + eventInitiatorClient + ": "
@@ -419,6 +428,10 @@ public class AdvancedWebSocketServer extends AbstractWebSocketServer {
 
 	}
 
+	/**
+	 * Methode zur Bearbeitung einer eintreffenden Login-Event-Bestätigung.
+	 * @param receivedPdu Event-Nachricht
+	 */
 	private void loginEventConfirmAction(ChatPDU receivedPdu) {
 		String eventInitiatorClient;
 		String confirmSenderClient;

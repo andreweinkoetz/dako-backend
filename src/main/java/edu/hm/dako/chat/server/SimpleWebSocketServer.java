@@ -14,13 +14,17 @@ import javax.websocket.server.ServerEndpoint;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import edu.hm.dako.chat.common.ChatPDUEncoder;
 import edu.hm.dako.chat.common.ClientConversationStatus;
 import edu.hm.dako.chat.common.ClientListEntry;
 import edu.hm.dako.chat.common.Pdutype;
 import edu.hm.dako.chat.common.ChatPDU;
-import edu.hm.dako.chat.common.ChatPDUDecoder;
 
+/**
+ * Klasse zur Repräsentation der Simple-Variante des Chatservers
+ * 
+ * @author Andre Weinkötz
+ *
+ */
 @ServerEndpoint(value = "/simplechat", encoders = { ChatPDUEncoder.class }, decoders = { ChatPDUDecoder.class })
 public class SimpleWebSocketServer extends AbstractWebSocketServer {
 
@@ -53,15 +57,22 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 		}
 	}
 
+	/**
+	 * Entfernt einen Client, wenn dieser die Verbindung abgebaut hat.
+	 * 
+	 * @return true wenn erfolgreich
+	 */
 	private boolean removeClientOnClose() {
-		ClientListEntry lostClient = clients.getClient(userName);
-		if (lostClient == null) {
-			return false;
-		}
-		if (lostClient.getStatus() != ClientConversationStatus.UNREGISTERING
-				&& lostClient.getStatus() != ClientConversationStatus.UNREGISTERED) {
-			clients.deleteClientWithoutCondition(userName);
-			return true;
+		if (userName != null) {
+			ClientListEntry lostClient = clients.getClient(userName);
+			if (lostClient == null) {
+				return false;
+			}
+			if (lostClient.getStatus() != ClientConversationStatus.UNREGISTERING
+					&& lostClient.getStatus() != ClientConversationStatus.UNREGISTERED) {
+				clients.deleteClientWithoutCondition(userName);
+				return true;
+			}
 		}
 		return false;
 	}
@@ -113,12 +124,6 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 					// Ein Loeschen ist aber nur zulaessig, wenn der Client
 					// nicht mehr in einer anderen Warteliste ist
 					if (clients.deleteClient(userName) == true) {
-						// Jetzt kann auch Worker-Thread beendet werden
-						try {
-							this.session.close();
-						} catch (IOException e) {
-							log.error(e.getMessage());
-						}
 						log.debug("Laenge der Clientliste nach dem Entfernen von " + userName + ": " + clients.size());
 						log.debug("Worker-Thread fuer " + userName + " zum Beenden vorgemerkt");
 						return true;
@@ -299,6 +304,12 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 
 	}
 
+	/**
+	 * Sendet ein Event an alle Clients, wenn sich die Liste der angemeldeten
+	 * Clients verändert hat.
+	 * 
+	 * @param pdu Login/Logout Nachricht
+	 */
 	public void sendLoginListUpdateEvent(ChatPDU pdu) {
 		// Liste der eingeloggten bzw. sich einloggenden User ermitteln
 		Vector<String> clientList = clients.getRegisteredClientNameList();
@@ -331,7 +342,12 @@ public class SimpleWebSocketServer extends AbstractWebSocketServer {
 	public void sendPduToClient(ClientListEntry client, ChatPDU pdu) {
 
 		try {
-			client.getSession().getBasicRemote().sendObject(pdu);
+			synchronized (client) {
+				Session session = client.getSession();
+				synchronized (session) {
+					session.getBasicRemote().sendObject(pdu);
+				}
+			}
 		} catch (IOException | EncodeException e) {
 			log.error(e.getMessage());
 		}

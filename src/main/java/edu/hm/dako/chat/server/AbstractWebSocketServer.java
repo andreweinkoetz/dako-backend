@@ -7,22 +7,32 @@ import org.apache.commons.logging.LogFactory;
 
 import edu.hm.dako.chat.common.ChatPDU;
 import edu.hm.dako.chat.common.ClientListEntry;
+import edu.hm.dako.chat.common.SharedChatClientList;
 
+/**
+ * Abstrakte Klasse zur Repräsentation eines WebSocket-Servers
+ * 
+ * @author Andre Weinkötz
+ *
+ */
 public abstract class AbstractWebSocketServer implements WebSocketServerInterface {
 
 	private static Log log = LogFactory.getLog(AbstractWebSocketServer.class);
+	
+	// Startzeit der Anfrage
+	protected long startTime;
 
+	// Sitzung eines verbundenen Clients
 	protected Session session;
 
 	// Gemeinsam fuer alle Workerthreads verwaltete Liste aller eingeloggten
 	// Clients
 	protected SharedChatClientList clients = SharedChatClientList.getInstance();
 
-	// Zaehler fuer Test
-	protected SharedServerCounter counter;
-
+	// Benutzername
 	protected String userName;
 
+	// Kennzeichen, ob Bearbeitung abgeschlossen ist.
 	protected Boolean finished;
 
 	@Override
